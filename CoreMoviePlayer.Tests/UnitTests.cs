@@ -69,5 +69,16 @@ namespace CoreMoviePlayer.Tests
 
             Assert.Throws<InvalidOperationException>(() => player.Pause());
         }
+
+        /*
+        // This test is intended to fail to demonstrate test failure handling
+        [Fact]
+        public void FailingTestExample()
+        {
+            var player = new CorePlayer();
+            var result = player.PlayMovie("test.mp4");
+            Assert.Equal("This will fail", result);
+        }
+        */
     }
 }
