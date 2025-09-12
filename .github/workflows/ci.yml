@@ -16,29 +16,28 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore CoreMoviePlayer/CoreMoviePlayer.sln
       - name: Build
-        run: dotnet build --no-restore -c Release
+        run: dotnet build CoreMoviePlayer/CoreMoviePlayer.sln --no-restore -c Release
       - name: Test with Coverage
         run: |
           dotnet tool install --global dotnet-reportgenerator-globaltool
-          dotnet test --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=opencover /p:Exclude="[xunit*]*" /p:ExcludeByFile="**/Program.cs" /p:Threshold=80 /p:ThresholdType=line
+          dotnet test CoreMoviePlayer/CoreMoviePlayer.sln --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=opencover /p:Exclude="[xunit*]*" /p:ExcludeByFile="**/Program.cs" /p:Threshold=80 /p:ThresholdType=line
           reportgenerator "-reports:./CoreMoviePlayer.Tests/coverage.opencover.xml" "-targetdir:./CoreMoviePlayer.Tests/TestResults/CoverageReport" -reporttypes:Html
-          # Threshold: Fail if line coverage <80%.
       - name: Static Analysis
         run: |
-          dotnet build --no-restore /p:RunAnalyzersDuringBuild=true > static-analysis-report.txt 2>&1
+          dotnet build CoreMoviePlayer/CoreMoviePlayer.sln --no-restore /p:RunAnalyzersDuringBuild=true > static-analysis-report.txt 2>&1
       - name: Generate SBOM
         run: |
           dotnet tool install --global CycloneDX
           dotnet CycloneDX CoreMoviePlayer/CoreMoviePlayer.csproj --output . --json
       - name: Upload Artifacts
-        if: github.ref == 'refs/heads/main' # Only on main
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: artifacts
           path: |
-            bin/Debug/net8.0/CoreMoviePlayer*
+            bin/Release/net8.0/CoreMoviePlayer*
             CoreMoviePlayer.Tests/coverage.opencover.xml
             CoreMoviePlayer.Tests/TestResults/**/*
             bom.json
