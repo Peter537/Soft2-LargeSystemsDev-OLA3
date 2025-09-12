@@ -32,13 +32,11 @@ namespace CoreMoviePlayer.Tests
             Assert.False(player.IsValidMovie("movie.txt"));
         }
 
-        /* Uden denne Test er der ikke 80% line coverage
         [Fact]
         public void Pause_NotPlaying_ThrowsException()
         {
             var player = new Services.CoreMoviePlayer();
             Assert.Throws<InvalidOperationException>(() => player.Pause());
         }
-        */
     }
 }
