@@ -1,0 +1,72 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --no-restore -c Release
+      - name: Test with Coverage
+        run: |
+          dotnet tool install --global dotnet-reportgenerator-globaltool
+          dotnet test --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=opencover /p:Exclude="[xunit*]*" /p:ExcludeByFile="**/Program.cs" /p:Threshold=80 /p:ThresholdType=line
+          reportgenerator "-reports:./CoreMoviePlayer.Tests/coverage.opencover.xml" "-targetdir:./CoreMoviePlayer.Tests/TestResults/CoverageReport" -reporttypes:Html
+          # Threshold: Fail if line coverage <80%.
+      - name: Static Analysis
+        run: |
+          dotnet build --no-restore /p:RunAnalyzersDuringBuild=true > static-analysis-report.txt 2>&1
+      - name: Generate SBOM
+        run: |
+          dotnet tool install --global CycloneDX
+          dotnet CycloneDX CoreMoviePlayer/CoreMoviePlayer.csproj --output . --json
+      - name: Upload Artifacts
+        if: github.ref == 'refs/heads/main' # Only on main
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts
+          path: |
+            bin/Debug/net8.0/CoreMoviePlayer*
+            CoreMoviePlayer.Tests/coverage.opencover.xml
+            CoreMoviePlayer.Tests/TestResults/**/*
+            bom.json
+            static-analysis-report.txt
+            CoreMoviePlayer/stylecop.json
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build App
+        run: dotnet publish CoreMoviePlayer/CoreMoviePlayer.csproj -c Release -o out
+      - name: Build Docker Image
+        run: docker build . --file Dockerfile --tag ${{ github.repository }}:${{ github.sha }}
+      - name: Login to GHCR
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push Docker Image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker tag ${{ github.repository }}:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
+          docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
